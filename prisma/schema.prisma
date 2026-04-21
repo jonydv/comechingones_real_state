@@ -1,0 +1,276 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Horizonte Comechingones — Prisma Schema
+// Spec-Driven: cada modelo refleja exactamente las entidades de spec/01-tenant.md,
+// spec/02-property.md, spec/04-auth.md y spec/05-lead.md
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── TENANT ──────────────────────────────────────────────────────────────────
+
+model Tenant {
+  id             String       @id @default(uuid())
+  name           String
+  slug           String       @unique
+  customDomain   String?      @unique @map("custom_domain")
+  logoUrl        String?      @map("logo_url")
+  /// Color primario hex. Default: Navy Blue del marketplace
+  primaryColor   String?      @default("#14354D") @map("primary_color")
+  /// Color secundario hex. Default: Sun Gold del marketplace
+  secondaryColor String?      @default("#DEAB5E") @map("secondary_color")
+  plan           TenantPlan   @default(free)
+  status         TenantStatus @default(pending)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  settings   TenantSettings?
+  users      User[]
+  properties Property[]
+  leads      Lead[]
+
+  @@map("tenants")
+}
+
+model TenantSettings {
+  tenantId        String  @id @map("tenant_id")
+  description     String?
+  phone           String?
+  whatsapp        String?
+  email           String?
+  address         String?
+  instagramUrl    String? @map("instagram_url")
+  facebookUrl     String? @map("facebook_url")
+  websiteUrl      String? @map("website_url")
+  /// Horarios: {"lun-vie": "9-18", "sab": "9-13"}
+  businessHours   Json?   @map("business_hours")
+  metaTitle       String? @map("meta_title")
+  metaDescription String? @map("meta_description")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_settings")
+}
+
+// ─── USER ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(uuid())
+  /// Null solo para SUPER_ADMIN
+  tenantId     String?    @map("tenant_id")
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  name         String
+  phone        String?
+  avatarUrl    String?    @map("avatar_url")
+  role         UserRole
+  status       UserStatus @default(active)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  lastLoginAt  DateTime?  @map("last_login_at")
+  deletedAt    DateTime?  @map("deleted_at")
+
+  tenant     Tenant?    @relation(fields: [tenantId], references: [id])
+  properties Property[] @relation("AgentProperties")
+  leads      Lead[]
+
+  @@map("users")
+}
+
+// ─── PROPERTY ─────────────────────────────────────────────────────────────────
+
+model Property {
+  id            String         @id @default(uuid())
+  tenantId      String         @map("tenant_id")
+  agentId       String?        @map("agent_id")
+  title         String
+  description   String?
+  /// Requerido si operation_type = venta | alquiler y status != borrador
+  price         Decimal?       @db.Decimal(14, 2)
+  /// Requerido si operation_type = alquiler_temporario
+  pricePerNight Decimal?       @map("price_per_night") @db.Decimal(14, 2)
+  currency      Currency       @default(ARS)
+  operationType OperationType  @map("operation_type")
+  propertyType  PropertyType   @map("property_type")
+  status        PropertyStatus @default(borrador)
+  featured      Boolean        @default(false)
+  viewsCount    Int            @default(0) @map("views_count")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  publishedAt   DateTime?      @map("published_at")
+  deletedAt     DateTime?      @map("deleted_at")
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  agent    User?             @relation("AgentProperties", fields: [agentId], references: [id])
+  location PropertyLocation?
+  features PropertyFeatures?
+  media    PropertyMedia[]
+  leads    Lead[]
+
+  @@map("properties")
+}
+
+model PropertyLocation {
+  propertyId        String          @id @map("property_id")
+  zone              ComechingoneZone
+  department        String?         @default("Pringles")
+  address           String?
+  lat               Decimal?        @db.Decimal(10, 7)
+  lng               Decimal?        @db.Decimal(10, 7)
+  showExactLocation Boolean         @default(false) @map("show_exact_location")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("property_locations")
+}
+
+model PropertyFeatures {
+  propertyId         String   @id @map("property_id")
+  bedrooms           Int?
+  bathrooms          Int?
+  areaTotalM2        Decimal? @map("area_total_m2") @db.Decimal(10, 2)
+  areaCoveredM2      Decimal? @map("area_covered_m2") @db.Decimal(10, 2)
+  garage             Boolean?
+  pool               Boolean?
+  furnished          Boolean?
+  allowsPets         Boolean? @map("allows_pets")
+  hasWifi            Boolean? @map("has_wifi")
+  hasBbq             Boolean? @map("has_bbq")
+  stories            Int?
+  yearBuilt          Int?     @map("year_built")
+  additionalFeatures String[] @map("additional_features")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("property_features")
+}
+
+model PropertyMedia {
+  id         String    @id @default(uuid())
+  propertyId String    @map("property_id")
+  url        String
+  type       MediaType
+  /// 0 = portada. Debe ser consecutivo.
+  order      Int
+  isCover    Boolean   @default(false) @map("is_cover")
+  altText    String?   @map("alt_text")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("property_media")
+}
+
+// ─── LEAD ─────────────────────────────────────────────────────────────────────
+
+model Lead {
+  id         String     @id @default(uuid())
+  tenantId   String     @map("tenant_id")
+  propertyId String?    @map("property_id")
+  agentId    String?    @map("agent_id")
+  name       String
+  /// Al menos email o phone requerido (validado en capa de aplicación)
+  email      String?
+  phone      String?
+  message    String?
+  source     LeadSource
+  status     LeadStatus @default(nuevo)
+  notes      String?
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  property Property? @relation(fields: [propertyId], references: [id])
+  agent    User?     @relation(fields: [agentId], references: [id])
+
+  @@map("leads")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────────────────────
+
+enum TenantPlan {
+  free
+  pro
+}
+
+enum TenantStatus {
+  active
+  suspended
+  pending
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  AGENT
+}
+
+enum UserStatus {
+  active
+  suspended
+}
+
+enum Currency {
+  ARS
+  USD
+}
+
+enum OperationType {
+  venta
+  alquiler
+  alquiler_temporario
+}
+
+enum PropertyType {
+  casa
+  cabana
+  terreno
+  departamento
+  campo
+  local_comercial
+  duplex
+  ph
+}
+
+enum PropertyStatus {
+  borrador
+  disponible
+  reservado
+  vendido
+  alquilado
+}
+
+enum ComechingoneZone {
+  el_trapiche
+  potrero_de_los_funes
+  la_florida
+  el_volcan
+  merlo
+  los_molles
+  carpinteria
+  villa_de_la_quebrada
+  papagayos
+  quines
+  villa_larca
+  otra
+}
+
+enum MediaType {
+  image
+  video
+}
+
+enum LeadSource {
+  web_form
+  whatsapp
+}
+
+enum LeadStatus {
+  nuevo
+  contactado
+  calificado
+  cerrado
+}

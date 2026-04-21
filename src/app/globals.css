@@ -1,26 +1,115 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ─────────────────────────────────────────────────────────────────────────────
+   DESIGN SYSTEM — Horizonte Comechingones
+   Tailwind v4: toda la configuración de tema vive aquí en @theme.
+   Los tenants pueden sobreescribir las variables CSS en :root para personalizar
+   su branding sin tocar este archivo.
+   ──────────────────────────────────────────────────────────────────────────── */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* ── Fuentes ── */
+  --font-heading: var(--font-montserrat), "Outfit", ui-sans-serif, system-ui;
+  --font-body: var(--font-inter), "Nunito", ui-sans-serif, system-ui;
+
+  /* ── Paleta de Marca — mapeada desde las variables CSS para permitir override por tenant ── */
+  --color-primary:         hsl(var(--primary));
+  --color-primary-fg:      hsl(var(--primary-foreground));
+  --color-secondary:       hsl(var(--secondary));
+  --color-secondary-fg:    hsl(var(--secondary-foreground));
+  --color-accent:          hsl(var(--accent));
+  --color-accent-fg:       hsl(var(--accent-foreground));
+
+  /* ── Neutros & Superficies ── */
+  --color-background:      hsl(var(--background));
+  --color-foreground:      hsl(var(--foreground));
+  --color-card:            hsl(var(--card));
+  --color-card-fg:         hsl(var(--card-foreground));
+  --color-muted:           hsl(var(--muted));
+  --color-muted-fg:        hsl(var(--muted-foreground));
+  --color-border:          hsl(var(--border));
+  --color-input:           hsl(var(--input));
+  --color-ring:            hsl(var(--ring));
+
+  /* ── Semánticos ── */
+  --color-destructive:     hsl(var(--destructive));
+  --color-destructive-fg:  hsl(var(--destructive-foreground));
+  --color-popover:         hsl(var(--popover));
+  --color-popover-fg:      hsl(var(--popover-foreground));
+
+  /* ── Border Radius ── */
+  /* Componentes interactivos menores: rounded-md/lg */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius));
+  --radius-lg: calc(var(--radius) + 2px);
+  /* Cards y contenedores grandes: rounded-xl */
+  --radius-xl: calc(var(--radius) + 6px);
 }
 
-@media (prefers-color-scheme: dark) {
+/* ─────────────────────────────────────────────────────────────────────────────
+   VARIABLES CSS BASE — Marketplace "Horizonte Comechingones"
+   Valores HSL separados por espacio para uso con hsl(var(--variable)).
+   Los tenants inyectan sus colores sobreescribiendo --primary, --secondary
+   y --accent vía middleware o CSS de su subdominio.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Navy Blue #14354D  → HSL 205 58% 19% */
+    --primary:            205 58% 19%;
+    --primary-foreground: 0 0% 98%;
+
+    /* Olive Green #678D63 → HSL 114 17% 47% */
+    --secondary:            114 17% 47%;
+    --secondary-foreground: 0 0% 98%;
+
+    /* Sun Gold #DEAB5E → HSL 36 67% 62% */
+    --accent:            36 67% 62%;
+    --accent-foreground: 210 40% 12%;
+
+    /* Superficies */
+    --background:      210 20% 98%;   /* #FAFAFA off-white */
+    --foreground:      220 14% 16%;   /* #1F2937 text primary */
+
+    --card:            0 0% 100%;     /* #FFFFFF */
+    --card-foreground: 220 14% 16%;
+
+    --muted:           210 16% 93%;
+    --muted-foreground: 0 0% 55%;     /* #8B8B8B text secondary */
+
+    --border:          220 13% 91%;   /* #E5E7EB */
+    --input:           220 13% 91%;
+    --ring:            205 58% 19%;   /* same as primary */
+
+    /* Semánticos */
+    --destructive:            0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --popover:                0 0% 100%;
+    --popover-foreground:     220 14% 16%;
+
+    /* Radio base para escalar con --radius-* en @theme */
+    --radius: 0.5rem; /* 8px — rounded-lg para componentes interactivos */
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ─────────────────────────────────────────────────────────────────────────────
+   ESTILOS BASE
+   ──────────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
 }
