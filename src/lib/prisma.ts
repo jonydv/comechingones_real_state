@@ -1,10 +1,18 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaNeon } from "@prisma/adapter-neon";
-import { neon } from "@neondatabase/serverless";
+import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 
+// PrismaPg con pg.Pool (TCP) — compatible con Next.js server components y App Router.
+// El driver HTTP de Neon (@neondatabase/serverless) requiere configuración extra
+// de WebSocket en entornos Node.js; usamos pg estándar en dev y build.
 function createPrismaClient() {
-  const sql = neon(process.env.DATABASE_URL!);
-  const adapter = new PrismaNeon(sql);
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL environment variable is not set");
+  }
+  const pool = new pg.Pool({
+    connectionString: process.env.DATABASE_URL,
+  });
+  const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
 

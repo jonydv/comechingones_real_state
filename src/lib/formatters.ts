@@ -3,6 +3,23 @@
  * Usados en server components → sin dependencias de cliente.
  */
 
+// ─── Tipo de propiedad → Etiqueta ────────────────────────────────────────────
+
+const PROPERTY_TYPE_LABELS: Record<string, string> = {
+  casa: "Casa",
+  cabana: "Cabaña",
+  terreno: "Terreno",
+  departamento: "Departamento",
+  campo: "Campo",
+  local_comercial: "Local Comercial",
+  duplex: "Dúplex",
+  ph: "PH",
+};
+
+export function propertyTypeLabel(type: string): string {
+  return PROPERTY_TYPE_LABELS[type] ?? type;
+}
+
 // ─── Zona → Etiqueta legible ──────────────────────────────────────────────────
 
 const ZONE_LABELS: Record<string, string> = {
@@ -42,7 +59,7 @@ const OPERATION_STYLES: Record<string, OperationStyle> = {
   },
   alquiler_temporario: {
     label: "Temporario",
-    className: "bg-accent/10 text-accent-fg",
+    className: "bg-accent/10 text-accent-foreground",
   },
 };
 
@@ -50,7 +67,7 @@ export function operationStyle(op: string): OperationStyle {
   return (
     OPERATION_STYLES[op] ?? {
       label: op,
-      className: "bg-muted text-muted-fg",
+      className: "bg-muted text-muted-foreground",
     }
   );
 }

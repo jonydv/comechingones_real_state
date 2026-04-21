@@ -2,46 +2,36 @@
  * proxy.ts — Next.js 16 (renombrado de middleware.ts en v16)
  *
  * Responsabilidades (Spec 04):
- *  1. Resolución de tenant: extrae subdominio del host header e inyecta
- *     x-tenant-slug en los request headers internos.
- *  2. Protección de rutas:
- *     - /admin/*       → requiere autenticación (AGENT, TENANT_ADMIN o SUPER_ADMIN)
- *     - /super-admin/* → requiere SUPER_ADMIN
- *     - Redirige a /login si no autenticado o sin permisos suficientes.
+ *  1. Resolución de tenant: extrae subdominio e inyecta x-tenant-slug.
+ *  2. Protección de rutas /admin/* y /super-admin/* con JWT-only (sin Prisma).
+ *
+ * Exporta `proxy` como export nombrado (requerido por Next.js 16).
+ * Usa authConfig (Edge-safe) — Prisma solo corre en Server Components.
  */
 
-import { auth } from "@/auth";
+import NextAuth from "next-auth";
+import { authConfig } from "@/auth.config";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+
+const { auth } = NextAuth(authConfig);
 
 const ADMIN_ROLES = new Set(["AGENT", "TENANT_ADMIN", "SUPER_ADMIN"]);
 const SUPER_ADMIN_ROLES = new Set(["SUPER_ADMIN"]);
 
-// Subdominios reservados (Spec 01)
 const RESERVED_SLUGS = new Set([
-  "www",
-  "api",
-  "admin",
-  "app",
-  "mail",
-  "ftp",
-  "marketplace",
-  "static",
-  "assets",
+  "www", "api", "admin", "app", "mail",
+  "ftp", "marketplace", "static", "assets",
 ]);
 
-export default auth((req: NextRequest & { auth: { user: { role?: string } } | null }) => {
+export const proxy = auth((req) => {
   const { pathname, hostname } = req.nextUrl;
   const session = req.auth;
 
-  // ── 1. Resolución de tenant desde subdominio ────────────────────────────────
-  // Formato esperado: [slug].marketplace.com o localhost:3000 (dev)
+  // ── 1. Tenant slug desde subdominio ─────────────────────────────────────────
   const hostParts = hostname.split(".");
-  const isMultiSubdomain = hostParts.length >= 3;
-  const slug = isMultiSubdomain ? hostParts[0] : null;
+  const slug = hostParts.length >= 3 ? hostParts[0] : null;
 
   const requestHeaders = new Headers(req.headers);
-
   if (slug && !RESERVED_SLUGS.has(slug)) {
     requestHeaders.set("x-tenant-slug", slug);
   }
@@ -53,8 +43,8 @@ export default auth((req: NextRequest & { auth: { user: { role?: string } } | nu
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
     }
-
-    if (!SUPER_ADMIN_ROLES.has(session.user.role ?? "")) {
+    const role = session.user.role ?? "";
+    if (!SUPER_ADMIN_ROLES.has(role)) {
       return NextResponse.json(
         { error: "Acceso denegado", code: "FORBIDDEN" },
         { status: 403 }
@@ -69,8 +59,8 @@ export default auth((req: NextRequest & { auth: { user: { role?: string } } | nu
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
     }
-
-    if (!ADMIN_ROLES.has(session.user.role ?? "")) {
+    const role = session.user.role ?? "";
+    if (!ADMIN_ROLES.has(role)) {
       return NextResponse.json(
         { error: "Acceso denegado", code: "FORBIDDEN" },
         { status: 403 }
@@ -82,8 +72,5 @@ export default auth((req: NextRequest & { auth: { user: { role?: string } } | nu
 });
 
 export const config = {
-  // Excluir archivos estáticos, imágenes y las rutas de NextAuth
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/auth).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth).*)"],
 };

@@ -1,27 +1,19 @@
 /**
- * Configuración de Auth.js v5 (next-auth@beta)
- * Spec 04: Credentials provider + JWT httpOnly cookie + 7 días de expiración.
+ * auth.ts — NextAuth v5 completo (con Credentials + Prisma).
  *
- * No usamos PrismaAdapter porque empleamos JWT strategy (stateless).
- * El adapter se puede agregar en fases posteriores para OAuth (Google, etc.).
+ * Solo se importa en Server Components y Route Handlers.
+ * El proxy usa authConfig directamente (sin Prisma).
  */
 
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { authConfig } from "@/auth.config";
 import type { UserRole } from "@prisma/client";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: {
-    strategy: "jwt",
-    maxAge: 60 * 60 * 24 * 7, // 7 días (Spec 04)
-  },
-
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
+  ...authConfig,
 
   providers: [
     Credentials({
@@ -37,37 +29,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!email || !password) return null;
 
-        // Buscar usuario activo (Spec 04: usuarios suspendidos → 403)
         const user = await prisma.user.findFirst({
           where: {
             email: email.toLowerCase().trim(),
             deletedAt: null,
           },
           include: {
-            tenant: {
-              select: { slug: true, status: true },
-            },
+            tenant: { select: { slug: true, status: true } },
           },
         });
 
         if (!user) return null;
 
-        // Verificar contraseña con bcrypt
         const passwordOk = await bcrypt.compare(password, user.passwordHash);
         if (!passwordOk) return null;
 
-        // Bloquear usuarios suspendidos (el proxy también lo valida, pero aquí fallamos rápido)
         if (user.status === "suspended") return null;
 
-        // Actualizar lastLoginAt sin bloquear la respuesta
         prisma.user
-          .update({
-            where: { id: user.id },
-            data: { lastLoginAt: new Date() },
-          })
-          .catch(() => {
-            // No crítico — no bloquear el login
-          });
+          .update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+          .catch(() => {});
 
         return {
           id: user.id,
@@ -81,34 +62,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-
-  callbacks: {
-    /**
-     * jwt(): se llama al crear o leer el token.
-     * Inyectamos los campos extra del JWT (Spec 04).
-     */
-    async jwt({ token, user }) {
-      if (user) {
-        token.sub = user.id;
-        token.role = user.role;
-        token.tenantId = user.tenantId;
-        token.tenantSlug = user.tenantSlug;
-      }
-      return token;
-    },
-
-    /**
-     * session(): mapea el JWT a la sesión expuesta al cliente.
-     * Solo enviamos campos seguros (nunca passwordHash).
-     */
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.sub ?? "";
-        session.user.role = token.role;
-        session.user.tenantId = token.tenantId;
-        session.user.tenantSlug = token.tenantSlug;
-      }
-      return session;
-    },
-  },
 });

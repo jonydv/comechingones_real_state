@@ -80,7 +80,7 @@ export default function PropertyCard({ property, className }: PropertyCardProps)
       className={cn(
         // Spec 08: Cards con rounded-xl, borde 1px tenue, hover:shadow-xl
         "group relative flex flex-col overflow-hidden rounded-xl border border-border",
-        "bg-card text-card-fg",
+        "bg-card text-card-foreground",
         "hover:shadow-xl transition-all duration-300",
         className
       )}
@@ -106,7 +106,7 @@ export default function PropertyCard({ property, className }: PropertyCardProps)
         {/* Badge "Destacada" (Spec 02: featured) */}
         {featured && (
           <span
-            className="absolute top-3 left-3 z-10 rounded-md bg-accent px-2 py-0.5 text-xs font-semibold text-accent-fg font-body"
+            className="absolute top-3 left-3 z-10 rounded-md bg-accent px-2 py-0.5 text-xs font-semibold text-accent-foreground font-body"
             aria-label="Propiedad destacada"
           >
             Destacada
